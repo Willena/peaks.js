@@ -61,7 +61,8 @@ define([
         // WebAudio Builder
         if (!options.dataUri && WaveformData.builders.webaudio.getAudioContext()) {
           requestType = 'arraybuffer';
-          uri = options.mediaElement.currentSrc || options.mediaElement.src;
+          //uri = options.mediaElement.currentSrc || options.mediaElement.src;
+          uri = options.audioSrc;
           builder = 'webaudio';
         }
 
@@ -130,7 +131,7 @@ define([
       openZoomView: function () {
         var that = this;
 
-        that.waveformZoomView = new WaveformZoomView(that.origWaveformData, that.ui.zoom, peaks);
+       // that.waveformZoomView = new WaveformZoomView(that.origWaveformData, that.ui.zoom, peaks);
 
         that.segments = new WaveformSegments(peaks);
         that.segments.init();
@@ -138,7 +139,7 @@ define([
         that.points = new WaveformPoints(peaks);
         that.points.init();
 
-        peaks.emit('waveformZoomReady', that.waveformZoomView);
+      //  peaks.emit('waveformZoomReady', that.waveformZoomView);
       },
 
       /**
@@ -149,7 +150,7 @@ define([
 
         window.addEventListener("resize", function () {
           that.ui.overview.hidden = true;
-          that.ui.zoom.hidden = true;
+         // that.ui.zoom.hidden = true;
 
           if (that.resizeTimeoutId) clearTimeout(that.resizeTimeoutId);
           that.resizeTimeoutId = setTimeout(function(){
@@ -162,11 +163,12 @@ define([
 
         peaks.on("overview_resized", function () {
           that.ui.overview.removeAttribute('hidden');
+          peaks.player.seekBySeconds(peaks.player.currentTime);
         });
 
-        peaks.on("zoomview_resized", function () {
+       /* peaks.on("zoomview_resized", function () {
           that.ui.zoom.removeAttribute('hidden');
-        });
+        });*/
 
         peaks.on("user_seek.*", function(time){
           peaks.player.seekBySeconds(time);

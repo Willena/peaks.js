@@ -7,207 +7,249 @@
  *
  */
 define([
-  "peaks/waveform/waveform.axis",
-  "peaks/waveform/waveform.mixins",
-  "konva"
+    "peaks/waveform/waveform.axis",
+    "peaks/waveform/waveform.mixins",
+    "konva"
 ], function (WaveformAxis, mixins, Konva) {
-  'use strict';
+    'use strict';
 
-  function WaveformOverview(waveformData, container, peaks) {
-    var that = this;
+    function WaveformOverview(waveformData, container, peaks) {
+        var that = this;
 
-    that.peaks = peaks;
-    that.options = peaks.options;
-    that.data = waveformData;
-    that.width = container.clientWidth;
-    that.height = container.clientHeight || that.options.height;
-    that.frameOffset = 0;
+        that.peaks = peaks;
+        that.options = peaks.options;
+        that.data = waveformData;
+        that.width = container.clientWidth;
+        that.height = container.clientHeight || that.options.height;
+        that.frameOffset = 0;
 
-    that.stage = new Konva.Stage({
-      container: container,
-      width: that.width,
-      height: that.height
-    });
+        that.stage = new Konva.Stage({
+            container: container,
+            width: that.width,
+            height: that.height
+        });
 
-    that.waveformLayer = new Konva.Layer();
+        that.waveformLayer = new Konva.Layer();
 
-    that.background = new Konva.Rect({
-      x: 0,
-      y: 0,
-      width: that.width,
-      height: that.height
-    });
+        that.background = new Konva.Rect({
+            x: 0,
+            y: 0,
+            width: that.width,
+            height: that.height
+        });
 
-    that.waveformLayer.add(that.background);
+        that.waveformLayer.add(that.background);
 
-    that.createWaveform();
-    that.createRefWaveform();
-    that.createUi();
+        that.createWaveform();
+        // that.createRefWaveform();
+        that.createUi();
 
-    // INTERACTION ===============================================
-    var cancelSeeking = function(){
-      that.stage.off("mousemove mouseup");
-      peaks.seeking = false;
-    };
+        // INTERACTION ===============================================
+        var cancelSeeking = function () {
+            that.stage.off("mousemove mouseup");
+            peaks.seeking = false;
+        };
 
-    that.stage.on("mousedown", function (event) {
-      if (event.target &&
-        !event.target.attrs.draggable &&
-        !event.target.parent.attrs.draggable) {
-        if (event.type == "mousedown") {
-          peaks.seeking = true;
+        that.stage.on("mousedown", function (event) {
+            if (event.target && !event.target.attrs.draggable && !event.target.parent.attrs.draggable) {
+                if (event.type == "mousedown") {
+                    peaks.seeking = true;
+                    peaks.emit("user_seek.overview", that.data.time(event.evt.layerX), event.evt.layerX);
 
-          peaks.emit("user_seek.overview", that.data.time(event.evt.layerX), event.evt.layerX);
+                    that.stage.on("mousemove", function (event) {
+                        peaks.emit("user_scrub.overview", that.data.time(event.evt.layerX), event.evt.layerX);
+                    });
 
-          that.stage.on("mousemove", function (event) {
-            peaks.emit("user_scrub.overview", that.data.time(event.evt.layerX), event.evt.layerX);
-          });
+                    that.stage.on("mouseup", cancelSeeking);
+                } else {
+                    cancelSeeking();
+                }
+            }
+        });
 
-          that.stage.on("mouseup", cancelSeeking);
-        } else {
-          cancelSeeking();
+        // EVENTS ====================================================
+
+        function trackPlayheadPosition(time, frame) {
+           // if (!peaks.seeking) {
+                peaks.player.currentTime = time;
+                that.playheadPixel = that.data.at_time(time);
+                that.updateUi(that.playheadPixel);
+           // }
         }
-      }
-    });
 
-    // EVENTS ====================================================
+        peaks.on("player_time_update", trackPlayheadPosition);
+        peaks.on("user_seek.*", trackPlayheadPosition);
+        peaks.on("user_scrub.*", trackPlayheadPosition);
 
-    function trackPlayheadPosition(time, frame){
-      if (!peaks.seeking) {
-        that.playheadPixel = that.data.at_time(time);
-        that.updateUi(that.playheadPixel);
-      }
+        peaks.on("segments.ready", function(){
+            that.uiLayer.moveToTop();
+            that.playheadLayer.moveToTop();
+        });
+
+        /*  peaks.on("waveform_zoom_displaying", function (start, end) {
+         that.updateRefWaveform(start, end);
+         });*/
+
+        peaks.on("resizeEndOverview", function (width, newWaveformData) {
+            that.width = width;
+            that.data = newWaveformData;
+            that.stage.setWidth(that.width);
+            //that.updateWaveform();
+            peaks.emit("overview_resized");
+        });
     }
 
-    peaks.on("player_time_update", trackPlayheadPosition);
-    peaks.on("user_seek.*", trackPlayheadPosition);
-    peaks.on("user_scrub.*", trackPlayheadPosition);
+    WaveformOverview.prototype.createWaveform = function () {
+        var that = this;
+        this.waveformShape = new Konva.Shape({
+            fill: that.options.overviewWaveformColor,
+            strokeWidth: 0
+        });
 
-    peaks.on("waveform_zoom_displaying", function (start, end) {
-      that.updateRefWaveform(start, end);
-    });
+        this.waveformShape.sceneFunc(mixins.waveformDrawFunction.bind(this.waveformShape, that));
 
-    peaks.on("resizeEndOverview", function (width, newWaveformData) {
-      that.width = width;
-      that.data = newWaveformData;
-      that.stage.setWidth(that.width);
-      //that.updateWaveform();
-      peaks.emit("overview_resized");
-    });
-  }
+        this.waveformLayer.add(this.waveformShape);
+        this.stage.add(this.waveformLayer);
+    };
 
-  WaveformOverview.prototype.createWaveform = function() {
-    var that = this;
-    this.waveformShape = new Konva.Shape({
-      fill: that.options.overviewWaveformColor,
-      strokeWidth: 0
-    });
 
-    this.waveformShape.sceneFunc(mixins.waveformDrawFunction.bind(this.waveformShape, that));
+    //Green Reference Waveform to inform users where they are in overview waveform based on current zoom level
+   /* WaveformOverview.prototype.createRefWaveform = function () {
+        var that = this;
 
-    this.waveformLayer.add(this.waveformShape);
-    this.stage.add(this.waveformLayer);
-  };
+        this.refLayer = new Konva.Layer();
 
-  //Green Reference Waveform to inform users where they are in overview waveform based on current zoom level
-  WaveformOverview.prototype.createRefWaveform = function () {
-    var that = this;
+        /!*this.refWaveformShape = new Konva.Shape({
+         drawFunc: function(canvas) {
+         mixins.waveformDrawFunction.call(this, that.data, canvas, mixins.interpolateHeight(that.height));
+         },
+         fill: that.options.zoomWaveformColor,
+         strokeWidth: 0
+         });*!/
 
-    this.refLayer = new Konva.Layer();
+        this.refWaveformRect = new Konva.Rect({
+            x: 0,
+            y: 11,
+            width: 0,
+            stroke: that.options.overviewHighlightRectangleColor,
+            strokeWidth: 1,
+            height: this.height - (11 * 2),
+            fill: that.options.overviewHighlightRectangleColor,
+            opacity: 0.3,
+            cornerRadius: 2
+        });
 
-    /*this.refWaveformShape = new Konva.Shape({
-      drawFunc: function(canvas) {
-        mixins.waveformDrawFunction.call(this, that.data, canvas, mixins.interpolateHeight(that.height));
-      },
-      fill: that.options.zoomWaveformColor,
-      strokeWidth: 0
-    });*/
+        this.refLayer.add(this.refWaveformRect);
+        this.stage.add(this.refLayer);
+    };*/
 
-    this.refWaveformRect = new Konva.Rect({
-      x: 0,
-      y: 11,
-      width: 0,
-      stroke: that.options.overviewHighlightRectangleColor,
-      strokeWidth: 1,
-      height: this.height - (11*2),
-      fill: that.options.overviewHighlightRectangleColor,
-      opacity: 0.3,
-      cornerRadius: 2
-    });
+    WaveformOverview.prototype.createUi = function () {
+        var that = this;
 
-    this.refLayer.add(this.refWaveformRect);
-    this.stage.add(this.refLayer);
-  };
+        /*  this.playheadLine = new Konva.Line({
+         points: [0.5, 0, 0.5, that.height],
+         stroke: that.options.playheadColor,
+         strokeWidth: 1,
+         x: 0
+         });
+         */
 
-  WaveformOverview.prototype.createUi = function() {
-    var that = this;
+        that.playheadLine = new Konva.Line({
+            points: [0.5, 0, 0.5, that.height],
+            stroke: that.options.playheadColor,
+            strokeWidth: 1
+        });
 
-    this.playheadLine = new Konva.Line({
-      points: [0.5, 0, 0.5, that.height],
-      stroke: that.options.playheadColor,
-      strokeWidth: 1,
-      x: 0
-    });
+        that.playheadText = new Konva.Text({
+            x: 2,
+            y: 12,
+            text: "00:00:00",
+            fontSize: 11,
+            fontFamily: 'sans-serif',
+            fill: that.options.playheadTextColor,
+            align: 'right'
+        });
 
-    that.uiLayer = new Konva.Layer({ index: 100 });
-    that.axis = new WaveformAxis(that);
+        that.playheadGroup = new Konva.Group({
+            x: 0,
+            y: 0
+        }).add(that.playheadLine).add(that.playheadText);
 
-    this.uiLayer.add(this.playheadLine);
-    this.stage.add(this.uiLayer);
-    this.uiLayer.moveToTop();
-  };
+        that.uiLayer = new Konva.Layer({index: 100});
+        that.playheadLayer = new Konva.Layer({index: 100});
 
-  /*WaveformOverview.prototype.updateWaveform = function () {
-    var that = this;
-    that.waveformShape.sceneFunc(function(canvas) {
-      mixins.waveformDrawFunction.call(this, that.data, canvas, mixins.interpolateHeight(that.height));
-    });
-    that.waveformLayer.draw();
-  };
+        that.axis = new WaveformAxis(that);
 
-  WaveformOverview.prototype.updateRefWaveform = function (time_in, time_out) {
-    var that = this;
+        this.playheadLayer.add(this.playheadGroup);
+        this.stage.add(this.playheadLayer);
+        this.stage.add(this.uiLayer);
+        this.uiLayer.moveToTop();
+        this.playheadLayer.moveToTop();
 
-    var offset_in = that.data.at_time(time_in);
-    var offset_out = that.data.at_time(time_out);
+    };
 
-    that.refWaveformShape.sceneFunc(function(canvas) {
-      that.data.set_segment(offset_in, offset_out, "zoom");
+    /*WaveformOverview.prototype.updateWaveform = function () {
+     var that = this;
+     that.waveformShape.sceneFunc(function(canvas) {
+     mixins.waveformDrawFunction.call(this, that.data, canvas, mixins.interpolateHeight(that.height));
+     });
+     that.waveformLayer.draw();
+     };
 
-      mixins.waveformOffsetDrawFunction.call(this, that.data, canvas, mixins.interpolateHeight(that.height));
-    });
+     WaveformOverview.prototype.updateRefWaveform = function (time_in, time_out) {
+     var that = this;
 
-    that.refWaveformShape.setWidth(that.data.at_time(time_out) - that.data.at_time(time_in));
-    that.refLayer.draw();
-  };*/
+     var offset_in = that.data.at_time(time_in);
+     var offset_out = that.data.at_time(time_out);
 
-  WaveformOverview.prototype.updateRefWaveform = function (time_in, time_out) {
-    if (isNaN(time_in))  throw new Error("WaveformOverview#updateRefWaveform passed a time in that is not a number: " + time_in);
-    if (isNaN(time_out)) throw new Error("WaveformOverview#updateRefWaveform passed a time out that is not a number: " + time_out);
+     that.refWaveformShape.sceneFunc(function(canvas) {
+     that.data.set_segment(offset_in, offset_out, "zoom");
 
-    var that = this;
+     mixins.waveformOffsetDrawFunction.call(this, that.data, canvas, mixins.interpolateHeight(that.height));
+     });
 
-    var offset_in = that.data.at_time(time_in);
-    var offset_out = that.data.at_time(time_out);
+     that.refWaveformShape.setWidth(that.data.at_time(time_out) - that.data.at_time(time_in));
+     that.refLayer.draw();
+     };*/
 
-    that.data.set_segment(offset_in, offset_out, "zoom");
+    WaveformOverview.prototype.updateRefWaveform = function (time_in, time_out) {
+        if (isNaN(time_in))  throw new Error("WaveformOverview#updateRefWaveform passed a time in that is not a number: " + time_in);
+        if (isNaN(time_out)) throw new Error("WaveformOverview#updateRefWaveform passed a time out that is not a number: " + time_out);
 
-    that.refWaveformRect.setAttrs({
-      x: that.data.segments.zoom.offset_start - that.data.offset_start,
-      width: that.data.at_time(time_out) - that.data.at_time(time_in)
-    });
+        var that = this;
 
-    that.refLayer.draw();
-  };
+        var offset_in = that.data.at_time(time_in);
+        var offset_out = that.data.at_time(time_out);
 
-  WaveformOverview.prototype.updateUi = function (pixel) {
-    if (isNaN(pixel)) throw new Error("WaveformOverview#updateUi passed a value that is not a number: " + pixel);
+        that.data.set_segment(offset_in, offset_out, "zoom");
 
-    var that = this;
+        that.refWaveformRect.setAttrs({
+            x: that.data.segments.zoom.offset_start - that.data.offset_start,
+            width: that.data.at_time(time_out) - that.data.at_time(time_in)
+        });
 
-    that.playheadLine.setAttr("x", pixel);
-    that.uiLayer.draw();
-  };
+        that.refLayer.draw();
+    };
 
-  return WaveformOverview;
+    WaveformOverview.prototype.updateUi = function (pixel) {
+        if (isNaN(pixel)) throw new Error("WaveformOverview#updateUi passed a value that is not a number: " + pixel);
+
+        var that = this;
+
+        that.peaks.segments.removeAll();
+        that.peaks.segments.add([
+            {
+                startTime: 0,
+                color: that.options.overviewplayedWaveformColor,
+                endTime: that.peaks.player.currentTime,
+                editable: false
+            }
+        ]);
+
+        that.playheadGroup.setAttr("x", pixel);
+        that.playheadText.setText(mixins.niceTime(that.data.time(pixel), false));
+        that.playheadLayer.draw();
+    };
+
+    return WaveformOverview;
 });

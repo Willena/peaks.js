@@ -15,7 +15,8 @@ define([
 
     self.points = [];
 
-    self.views = [waveformView.waveformZoomView, waveformView.waveformOverview].map(function(view){
+    //self.views = [waveformView.waveformZoomView, waveformView.waveformOverview].map(function(view){
+    self.views = [waveformView.waveformOverview].map(function(view){
       if (!view.pointLayer) {
         view.pointLayer = new Konva.Layer();
         view.stage.add(view.pointLayer);
@@ -26,9 +27,10 @@ define([
     });
 
     function constructPoint(point) {
-      var pointZoomGroup = new Konva.Group();
+   //   var pointZoomGroup = new Konva.Group();
       var pointOverviewGroup = new Konva.Group();
-      var pointGroups = [pointZoomGroup, pointOverviewGroup];
+      //var pointGroups = [pointZoomGroup, pointOverviewGroup];
+      var pointGroups = [pointOverviewGroup];
 
       point.editable = Boolean(point.editable);
 
@@ -43,8 +45,8 @@ define([
         view.pointLayer.add(pointGroup);
       });
 
-      point.zoom = pointZoomGroup;
-      point.zoom.view = waveformView.waveformZoomView;
+    //  point.zoom = pointZoomGroup;
+   //   point.zoom.view = waveformView.waveformZoomView;
       point.overview = pointOverviewGroup;
       point.overview.view = waveformView.waveformOverview;
 
@@ -54,7 +56,7 @@ define([
     function updatePoint(point) {
       // Binding with data
       waveformView.waveformOverview.data.set_point(waveformView.waveformOverview.data.at_time(point.timestamp), point.id);
-      waveformView.waveformZoomView.data.set_point(waveformView.waveformZoomView.data.at_time(point.timestamp), point.id);
+    //  waveformView.waveformZoomView.data.set_point(waveformView.waveformZoomView.data.at_time(point.timestamp), point.id);
 
       // Overview
       var overviewtimestampOffset = waveformView.waveformOverview.data.at_time(point.timestamp);
@@ -67,7 +69,7 @@ define([
       }
 
       // Zoom
-      var zoomtimestampOffset = waveformView.waveformZoomView.data.at_time(point.timestamp);
+    /*  var zoomtimestampOffset = waveformView.waveformZoomView.data.at_time(point.timestamp);
       var frameStartOffset = waveformView.waveformZoomView.frameOffset;
 
       if (zoomtimestampOffset < frameStartOffset) {
@@ -88,7 +90,7 @@ define([
       }
       else {
         point.zoom.hide();
-      }
+      }*/
     }
 
     function pointHandleDrag(thisPoint, point) {
@@ -102,7 +104,8 @@ define([
     }
 
     this.init = function () {
-      peaks.on("waveform_zoom_displaying", self.updatePoints.bind(self));
+     // peaks.on("waveform_zoom_displaying", self.updatePoints.bind(self));
+      self.updatePoints.bind(self);
       peaks.emit("points.ready");
     };
 
@@ -136,7 +139,7 @@ define([
 
       if (typeof index === 'number'){
         point.overview.destroy();
-        point.zoom.destroy();
+       // point.zoom.destroy();
       }
 
       return index;

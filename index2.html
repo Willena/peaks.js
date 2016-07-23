@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Peaks.js Demo Page</title>
+    <style>
+
+
+        [id*="waveform-visualiser"] [class*="-container"] {
+            box-shadow: 3px 3px 20px #919191;
+            margin: 0 0 24px 0;
+            -moz-box-shadow: 3px 3px 20px #919191;
+            -webkit-box-shadow: 3px 3px 20px #919191;
+            line-height: 0;
+        }
+
+        .overview-container {
+            height: 85px;
+        }
+
+        #second-waveform-visualiser-container [class*="-container"] {
+            background: #111;
+        }
+
+        #demo-controls {
+            margin: 0 auto 24px auto;
+            width: 1000px;
+        }
+
+        #demo-controls > * {
+            vertical-align: middle;
+        }
+
+        #demo-controls button {
+            background: #fff;
+            border: 1px solid #919191;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+
+<div id="first-waveform-visualiser-container"></div>
+
+<div id="demo-controls">
+    <audio controls=controls>
+        <source src="/multiTrackPlayerJs/sample/file.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
+</div>
+
+<script src="peaks.js"></script>
+<script>
+    peaksInstance = null;
+    (function (Peaks) {
+        var options = {
+            container: document.getElementById('first-waveform-visualiser-container'),
+//            mediaElement: document.querySelector('audio'),
+            dataUri: {
+                arraybuffer: '/multiTrackPlayerJs/sample/file.dat',
+            },
+            keyboard: false,
+            logger: console.error.bind(console),
+            overviewWaveformColor: 'rgba(116,220,220,1)',
+            overviewplayedWaveformColor: 'rgba(116,116,220,1)',
+            axisGridlineColor: '#000',
+            playheadTextColor : '#000',
+            axisLabelColor: '#000',
+
+        };
+
+        peaksInstance = Peaks.init(options);
+    })(peaks);
+</script>
+</body>
+</html>
